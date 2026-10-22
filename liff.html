@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>冒険の書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root { --bg:#000; --win:#fff; --text:#fff; --sub:#a8a8a8; --dim:#6e6e6e; --gold:#ffd800; --warn:#ff5a5a; --hp:#3cdc50; --line:#3a3a3a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'DotGothic16', monospace; font-size: 16px; line-height: 1.5;
+    -webkit-font-smoothing: none; image-rendering: pixelated; }
+  main { max-width: 520px; margin: 0 auto; padding: 12px 12px 40px; }
+  .win { position: relative; border: 3px solid var(--win); border-radius: 8px; padding: 14px 14px 12px; margin: 18px 0 0; background: var(--bg);
+    box-shadow: 0 0 0 3px var(--bg), 0 0 0 4px var(--win); }
+  .win > h2 { position: absolute; top: -13px; left: 14px; margin: 0; padding: 0 8px; background: var(--bg); font-size: 15px; font-weight: normal; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .grow { flex: 1; min-width: 0; }
+  .sub { color: var(--sub); font-size: 13px; }
+  .gold { color: var(--gold); } .warn { color: var(--warn); } .dim { color: var(--dim); }
+  .cur::before { content: '▶'; display: inline-block; width: 1.1em; color: var(--dim); }
+  .cur.hot::before { color: var(--gold); }
+  button { font: inherit; color: var(--text); background: var(--bg); border: 2px solid var(--win); border-radius: 6px; padding: 6px 10px; min-height: 40px; cursor: pointer; }
+  button:active { background: #222; }
+  button.small { min-height: 34px; padding: 3px 8px; font-size: 13px; }
+  .bar { flex: 1; height: 16px; border: 2px solid var(--win); border-radius: 3px; padding: 2px; }
+  .bar > i { display: block; height: 8px; background: var(--gold); }
+  .stat { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .stat b { width: 3.6em; font-weight: normal; }
+  .big { font-size: 40px; line-height: 1; color: var(--gold); }
+  .tag { display: inline-block; font-size: 12px; padding: 0 6px; border-radius: 3px; background: #2a2a2a; margin-right: 6px; }
+  .tag.soon { background: var(--gold); color: #000; } .tag.late { background: var(--warn); color: #000; }
+  .res { display: inline-block; font-size: 11px; border: 1px solid var(--win); border-radius: 3px; padding: 0 4px; margin-right: 6px; }
+  form { display: flex; gap: 8px; margin-top: 10px; }
+  input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: #111; border: 2px solid var(--line); border-radius: 6px; padding: 6px 8px; min-height: 40px; }
+  input:focus { outline: none; border-color: var(--win); }
+  #msg { position: fixed; left: 12px; right: 12px; bottom: 16px; max-width: 496px; margin: 0 auto; border: 3px solid var(--win); border-radius: 8px; background: var(--bg);
+    padding: 12px 14px; display: none; white-space: pre-line; }
+  #msg.show { display: block; }
+  .wxgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .empty { color: var(--dim); padding: 6px 0; }
+  .titles span { display: inline-block; margin: 2px 8px 2px 0; color: var(--gold); }
+  .blink { animation: blink 1s steps(2) infinite; } @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="win"><h2>冒険の書</h2>
+    <div id="date" class="sub">よみこみちゅう<span class="blink">…</span></div>
+  </section>
+
+  <section class="win" id="statusWin"><h2>つよさ</h2><div id="status"></div></section>
+  <section class="win"><h2>今日の予定</h2><div id="events"></div></section>
+  <section class="win"><h2>天気</h2><div id="weather" class="wxgrid"></div></section>
+
+  <section class="win"><h2>やること</h2>
+    <div id="todos"></div>
+    <form id="todoForm"><label for="todoIn" class="sub" style="position:absolute;left:-9999px">やることを追加</label>
+      <input id="todoIn" placeholder="課題 10/27 9:00まで" autocomplete="off"><button type="submit">ついか</button></form>
+  </section>
+
+  <section class="win"><h2>買い物</h2>
+    <div id="shopping"></div>
+    <form id="shopForm"><label for="shopIn" class="sub" style="position:absolute;left:-9999px">買い物を追加</label>
+      <input id="shopIn" placeholder="牛乳" autocomplete="off"><button type="submit">ついか</button></form>
+  </section>
+
+  <section class="win"><h2>家事</h2><div id="chores"></div></section>
+  <section class="win"><h2>返信が必要なもの</h2><div id="replies"></div></section>
+  <section class="win"><h2>家計</h2><div id="money"></div></section>
+</main>
+<div id="msg" role="status" aria-live="polite"></div>
+
+<script>
+// ===== ここをご自分の値に書き換えてください =====
+const LIFF_ID = 'ここにLIFF ID';                     // 例: 2000000000-AbCdEfGh
+const GAS_URL = 'ここにGASのウェブアプリのURL';      // 例: https://script.google.com/macros/s/xxxx/exec（LINE の Webhook と同じ URL）
+// ===============================================
+
+let token = '';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const yen = (n) => '¥' + Math.round(n).toLocaleString('ja-JP');
+
+function say(text, ms) {
+  const m = $('msg'); m.textContent = text; m.classList.add('show');
+  clearTimeout(say.t); say.t = setTimeout(() => m.classList.remove('show'), ms || 2600);
+}
+
+async function call(op, params) {
+  const q = new URLSearchParams(Object.assign({ op: op, token: token }, params || {}));
+  const res = await fetch(GAS_URL + '?' + q.toString());
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error === 'auth' ? 'この冒険の書は、持ち主しか開けないようでございます' : j.error);
+  if (j.notes && j.notes.length) say(j.notes.join('\n'), 4000);
+  else if (j.msg) say('▶ ' + j.msg);
+  render(j.data);
+}
+
+function bar(pct, color) {
+  return '<div class="bar"><i style="width:' + Math.max(2, Math.min(100, pct)) + '%;background:' + color + '"></i></div>';
+}
+
+function render(d) {
+  $('date').textContent = d.date + '　セバスチャンが記録しております';
+  const s = d.status;
+  const hpColor = s.hp > 60 ? 'var(--hp)' : s.hp > 30 ? 'var(--gold)' : 'var(--warn)';
+  $('status').innerHTML =
+    '<div class="stat"><b>レベル</b><span class="big">' + s.level + '</span><span class="sub">連続 ' + s.streak + '日</span></div>' +
+    '<div class="stat"><b>EXP</b>' + bar(s.into / s.need * 100, 'var(--gold)') + '</div>' +
+    '<div class="sub" style="text-align:right">つぎのレベルまで ' + (s.need - s.into) + '</div>' +
+    '<div class="stat"><b>HP ' + s.hp + '</b>' + bar(s.hp, hpColor) + '</div>' +
+    (d.money ? '<div class="stat"><b>G</b><span>' + yen(d.money.budget - d.money.month) + '</span><span class="sub">（今月の残り）</span></div>' : '') +
+    '<div class="stat"><b>走る</b><span>' + d.runs.week + '/' + d.runs.goal + '回</span><span class="sub">今週</span></div>' +
+    '<div class="titles sub">称号：' + (s.titles.length ? s.titles.map((t) => '<span>' + esc(t) + '</span>').join('') : 'まだない') + '</div>';
+
+  $('events').innerHTML = d.events.length ? d.events.map((e) =>
+    '<div class="row"><span class="sub" style="width:6.5em">' + esc(e.time) + '</span><span class="grow cur">' + esc(e.title) + '</span></div>').join('')
+    : '<div class="empty">予定はございません</div>';
+
+  $('weather').innerHTML = d.weather.length ? d.weather.map((w) =>
+    '<div><div class="gold">' + esc(w.place) + '</div><div style="font-size:28px">' + w.icon + '</div><div>' + esc(w.name) + '</div>' +
+    '<div class="sub">' + w.max + '℃/' + w.min + '℃　<span class="' + (w.rain >= 50 ? 'warn' : '') + '">雨' + w.rain + '%</span></div></div>').join('')
+    : '<div class="empty">天気は伺えませんでした</div>';
+
+  $('todos').innerHTML = d.todos.length ? d.todos.map((t) => {
+    const late = t.days !== null && t.days < 0, soon = t.days !== null && t.days <= 2;
+    const tag = t.due ? '<span class="tag ' + (late ? 'late' : soon ? 'soon' : '') + '">' + esc(t.label.replace(/[（）]/g, '')) + '</span>' : '';
+    return '<div class="row"><div class="grow"><div class="cur ' + (soon ? 'hot' : '') + '">' + (t.research ? '<span class="res">研究</span>' : '') + esc(t.text) + '</div>' +
+      '<div class="sub">' + tag + '</div></div>' +
+      (soon && !t.research ? '<button class="small" data-op="snooze" data-key="' + t.key + '">にげる</button>' : '') +
+      '<button class="small" data-op="done" data-key="' + t.key + '">' + (soon ? 'たたかう' : '完了') + '</button></div>';
+  }).join('') : '<div class="empty">やることは、ございません</div>';
+
+  $('shopping').innerHTML = d.shopping.length ? d.shopping.map((it) =>
+    '<div class="row"><span class="grow cur">' + esc(it) + '</span><button class="small" data-op="bought" data-n="' + esc(it) + '">買った</button></div>').join('')
+    : '<div class="empty">買う品はございません</div>';
+
+  $('chores').innerHTML = d.chores.length ? d.chores.map((c) =>
+    '<div class="row"><span class="grow cur ' + (c.left <= 0 ? 'hot' : '') + '">' + esc(c.name) + '<span class="sub">　' + (c.left > 0 ? 'あと' + c.left + '日' : 'そろそろ') + '</span></span>' +
+    '<button class="small" data-op="chore" data-n="' + esc(c.name) + '">やった</button></div>').join('')
+    : '<div class="empty">「家事 シーツの洗濯 14日」とトークで送ると登録できます</div>';
+
+  $('replies').innerHTML = d.replies.length ? d.replies.map((r) =>
+    '<div class="row"><span class="grow cur ' + (r.days >= 2 ? 'hot' : '') + '">' + esc(r.text) + '<span class="sub">　' + (r.days ? r.days + '日前から' : '今日から') + '</span></span>' +
+    '<button class="small" data-op="reply" data-n="' + esc(r.text) + '">返信した</button></div>').join('')
+    : '<div class="empty">返信が必要なものは、ございません</div>';
+
+  if (d.money) {
+    const m = d.money, left = m.budget - m.month;
+    $('money').innerHTML =
+      '<div class="stat"><b>今月</b><span style="font-size:22px">' + yen(m.month) + '</span><span class="sub">/ ' + yen(m.budget) + '</span></div>' +
+      '<div class="stat"><b>のこり</b>' + bar(Math.max(0, left) / m.budget * 100, left / m.budget > 0.5 ? 'var(--hp)' : left / m.budget > 0.25 ? 'var(--gold)' : 'var(--warn)') + '</div>' +
+      '<div class="sub">今日 ' + yen(m.today) + ' / 目安 ' + yen(m.daily) + '　今日までの目安 ' + yen(m.pace) + '</div>';
+  } else {
+    $('money').innerHTML = '<div class="empty">家計は伺えませんでした</div>';
+  }
+}
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-op]');
+  if (!b) return;
+  b.disabled = true;
+  try { await call(b.dataset.op, b.dataset.key ? { key: b.dataset.key } : { n: b.dataset.n }); }
+  catch (err) { say(err.message); b.disabled = false; }
+});
+$('todoForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); const v = $('todoIn').value.trim(); if (!v) return;
+  try { await call('todo', { n: v }); $('todoIn').value = ''; } catch (err) { say(err.message); }
+});
+$('shopForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); const v = $('shopIn').value.trim(); if (!v) return;
+  try { await call('shop', { n: v }); $('shopIn').value = ''; } catch (err) { say(err.message); }
+});
+
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    token = liff.getAccessToken();
+    await call('data');
+  } catch (err) {
+    $('date').textContent = 'ひらけませんでした：' + err.message;
+  }
+})();
+</script>
+</body>
+</html>
